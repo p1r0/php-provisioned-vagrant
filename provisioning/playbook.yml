@@ -1,0 +1,40 @@
+---
+- hosts: all
+  sudo: yes
+  tasks:
+    - name: add nginx repo
+      apt_repository: repo='ppa:nginx/stable'
+    - name: add php repo
+      apt_repository: repo='ppa:ondrej/php5'
+    - name: install nginx
+      apt: name=nginx state=present
+    - name: install php
+      apt: name={{item}} state=present
+      with_items:
+        - php5-fpm
+        - php5-mysql
+        - php5-mcrypt
+    - name: udate system
+      apt: upgrade=dist    
+
+    - name: Configure nginx
+      copy: src=conf/01-backend.conf dest=/etc/nginx/conf.d/01-backend.conf
+
+    - name: remove default
+      file: path=/etc/nginx/sites-enabled/default state=absent 
+      notify: restart nginx
+
+
+    - name: Install vhost
+      copy: src=vhosts/{{item}} dest=/etc/nginx/sites-available/{{item}}
+      with_items:
+        - symfony
+
+    - name: link vhosts
+      file: src=/etc/nginx/sites-available/{{ item }} dest=/etc/nginx/sites-enabled/{{ item }} state=link
+      with_items:
+        - symfony
+      notify: restart nginx
+  handlers:
+    - name: restart nginx
+      service: name=nginx state=restarted  
